@@ -71,14 +71,14 @@ def get_projects(keyword=None):
 
 # Copy to clipboard + auto-hide message
 def copy_to_clipboard(text):
-    try:
-        pyperclip.copy(text)
-        success_placeholder = st.empty()
-        success_placeholder.success("Copied to clipboard!")
-        time.sleep(1.5)  # message disappears after 1.5 sec
-        success_placeholder.empty()
-    except Exception:
-        st.error("Clipboard copy failed. Please copy manually.")
+    js_code = f"""
+    <script>
+        navigator.clipboard.writeText(`{text}`).then(() => {{
+            alert("Copied to clipboard!");
+        }});
+    </script>
+    """
+    st.markdown(js_code, unsafe_allow_html=True)
 
 # Main UI
 st.set_page_config(page_title="Project Manager", page_icon="📂", layout="wide")
