@@ -2,9 +2,7 @@ import streamlit as st
 import psycopg2
 from psycopg2.extras import RealDictCursor
 from datetime import datetime
-import pyperclip
 import os
-import time
 
 # Neon DB credentials
 DB_HOST = os.getenv("DB_HOST")
@@ -51,6 +49,28 @@ def add_project(name, desc):
     cur.close()
     conn.close()
 
+# Update project
+def update_project(project_id, name, desc):
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("""
+        UPDATE projects 
+        SET project_name = %s, description = %s 
+        WHERE id = %s
+    """, (name, desc, project_id))
+    conn.commit()
+    cur.close()
+    conn.close()
+
+# Delete project
+def delete_project(project_id):
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("DELETE FROM projects WHERE id = %s", (project_id,))
+    conn.commit()
+    cur.close()
+    conn.close()
+
 # Fetch projects (with optional search keyword)
 def get_projects(keyword=None):
     conn = get_connection()
@@ -69,7 +89,7 @@ def get_projects(keyword=None):
     conn.close()
     return rows
 
-# Copy to clipboard + auto-hide message
+# Copy to clipboard
 def copy_to_clipboard(text):
     js_code = f"""
     <script>
@@ -104,21 +124,33 @@ if menu == "➕ Add New Project":
 
 elif menu == "📋 Dashboard":
     st.subheader("Projects Dashboard")
-
-    # Search bar
     keyword = st.text_input("🔍 Search by keyword", placeholder="Enter keyword (e.g., Python, chatbot, API)")
     projects = get_projects(keyword) if keyword else get_projects()
 
     if projects:
         for p in projects:
-            st.markdown(f"### {p['project_name']}")
-            st.markdown(p['description'], unsafe_allow_html=True)
-            col1, col2 = st.columns([1, 6])
-            with col1:
-                if st.button("📋 Copy", key=f"copy_{p['id']}"):
-                    copy_to_clipboard(p['description'])
-            with col2:
+            with st.expander(f"📌 {p['project_name']}"):
+                st.markdown(p['description'], unsafe_allow_html=True)
                 st.markdown(f"*Added on: {p['date_added'].strftime('%Y-%m-%d')}*")
-            st.markdown("---")
+
+                col1, col2, col3, col4 = st.columns([1, 1, 1, 4])
+                with col1:
+                    if st.button("📋 Copy", key=f"copy_{p['id']}"):
+                        copy_to_clipboard(p['description'])
+                with col2:
+                    if st.button("✏️ Edit", key=f"edit_{p['id']}"):
+                        with st.form(f"edit_form_{p['id']}"):
+                            new_name = st.text_input("Project Name", value=p['project_name'])
+                            new_desc = st.text_area("Description", value=p['description'], height=200)
+                            if st.form_submit_button("Update"):
+                                update_project(p['id'], new_name, new_desc)
+                                st.success("✅ Project updated successfully!")
+                                st.experimental_rerun()
+                with col3:
+                    if st.button("🗑 Delete", key=f"delete_{p['id']}"):
+                        delete_project(p['id'])
+                        st.warning("🗑 Project deleted!")
+                        st.experimental_rerun()
+                st.markdown("---")
     else:
         st.info("No projects found. Try a different keyword or add a new one.")
